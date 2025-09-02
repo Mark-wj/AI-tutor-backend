@@ -20,7 +20,7 @@ class DocumentService:
             if not document:
                 raise HTTPException(status_code=404, detail="Document not found")
 
-            text = document.content[:4000]  # truncate
+            text = document.content[:4000]  
 
             summary, key_topics = await DocumentService.generate_summary_and_topics(text)
             quiz_questions = await DocumentService.generate_quiz_questions(text)
