@@ -4,7 +4,8 @@ from typing import List, Optional
 from fastapi import HTTPException, APIRouter, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from openai import AsyncOpenAI
+from huggingface_hub import AsyncInferenceClient
+# from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 from database import get_db
@@ -18,7 +19,7 @@ load_dotenv()
 print("Quizzes router loading...")
 
 # Initialize OpenAI client
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = AsyncInferenceClient(token=os.getenv("HUGGINGFACEHUB_API_TOKEN"))
 
 # Pydantic models
 class QuizGenerateRequest(BaseModel):
@@ -51,7 +52,7 @@ class QuizService:
                 estimated_duration=max(5, question_count * 2)  # 2 minutes per question minimum
             )
             
-            # Generate questions using AI
+            # Generate questions using Hugging Face AI
             questions_data = await QuizService._generate_questions_ai(
                 document.content, difficulty, question_count
             )
@@ -81,7 +82,7 @@ class QuizService:
 
     @staticmethod
     async def _generate_questions_ai(content: str, difficulty: str, count: int) -> List[dict]:
-        """Generate questions using OpenAI"""
+        """Generate questions using Hugging Face AI"""
         difficulty_prompts = {
             "easy": "Focus on basic comprehension and recall questions.",
             "medium": "Create questions requiring understanding and application of concepts.",
@@ -113,17 +114,14 @@ class QuizService:
         """
 
         try:
-            response = await client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an expert educational content creator. Generate high-quality quiz questions that test real understanding. Return only valid JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                max_tokens=2000,
+            response = await client.text_generation(
+                prompt=prompt,
+                model="koshkosh/quiz-generator",  # Using quiz generator model :cite[1]:cite[9]
+                max_new_tokens=2000,
                 temperature=0.7
             )
 
-            raw_output = response.choices[0].message.content.strip()
+            raw_output = response.strip()
             
             # Clean up JSON formatting
             raw_output = raw_output.replace('```json', '').replace('```', '').strip()

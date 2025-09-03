@@ -9,6 +9,7 @@ from fastapi import HTTPException, APIRouter, UploadFile, File, Depends, Backgro
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from openai import AsyncOpenAI
+from huggingface_hub import AsyncInferenceClient
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 
@@ -24,7 +25,7 @@ load_dotenv()
 print("Documents router loading...")
 
 # Initialize OpenAI client
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = AsyncInferenceClient(token=os.getenv("HUGGINGFACEHUB_API_TOKEN"))
 
 
 class DocumentService:
@@ -133,17 +134,14 @@ class DocumentService:
         """
 
         try:
-            response = await client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an expert educational content analyzer."},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=800,
+            response = await client.text_generation(
+                prompt=prompt,
+                model="mistralai/Mistral-7B-Instruct-v0.2",
+                max_new_tokens=800,
                 temperature=0.3,
             )
 
-            content = response.choices[0].message.content
+            content = response
             
             summary = ""
             key_topics = []
@@ -191,17 +189,14 @@ class DocumentService:
         """
 
         try:
-            response = await client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an expert quiz generator. Return only valid JSON."},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=1200,
+            response = await client.text_generation(
+                prompt=prompt,
+                model="koshkosh/quiz-generator",  # Using quiz generator model :cite[1]:cite[9]
+                max_new_tokens=1200,
                 temperature=0.5,
             )
 
-            raw_output = response.choices[0].message.content.strip()
+            raw_output = response.strip()
 
             # Clean up common JSON formatting issues
             raw_output = re.sub(r'^```json\s*', '', raw_output)

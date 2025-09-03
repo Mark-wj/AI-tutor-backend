@@ -1,14 +1,14 @@
 import json, re, asyncio
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from openai import AsyncOpenAI
+from huggingface_hub import AsyncInferenceClient  # Changed import
 from database import SessionLocal
 from models.document import Document
 from models.quiz import Quiz
 import os
 
-# Initialize OpenAI client
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Initialize Hugging Face client
+client = AsyncInferenceClient(token=os.getenv("HUGGINGFACEHUB_API_TOKEN"))  # Changed client
 
 class DocumentService:
     @staticmethod
@@ -56,66 +56,57 @@ class DocumentService:
         {text}
         """
 
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",  # use lightweight model
-            messages=[
-                {"role": "system", "content": "You are an expert educational content analyzer."},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=500,
-            temperature=0.7,
-        )
+        try:
+            # Using Hugging Face text generation
+            response = await client.text_generation(
+                prompt=prompt,
+                model="mistralai/Mistral-7B-Instruct-v0.2",  # Using a suitable model
+                max_new_tokens=500,
+                temperature=0.7,
+            )
 
-        content = response.choices[0].message.content
-        summary, key_topics = "", []
+            content = response
+            summary, key_topics = "", []
 
-        if "Key topics:" in content:
-            parts = content.split("Key topics:")
-            summary = parts[0].replace("Summary:", "").strip()
-            key_topics = [t.strip("-• \n") for t in parts[1].split("\n") if t.strip()]
-        else:
-            summary = content.strip()
+            if "Key topics:" in content:
+                parts = content.split("Key topics:")
+                summary = parts[0].replace("Summary:", "").strip()
+                key_topics = [t.strip("-• \n") for t in parts[1].split("\n") if t.strip()]
+            else:
+                summary = content.strip()
 
-        return summary, key_topics
+            return summary, key_topics
+        
+        except Exception as e:
+            print(f"Error generating summary and topics: {e}")
+            return "Summary generation failed", []
 
     @staticmethod
     async def generate_quiz_questions(text: str):
-        prompt = f"""
-        Create 5 multiple choice quiz questions based on this text. 
-        Return valid JSON in this format only:
-        [
-          {{
-            "question": "string",
-            "options": ["A", "B", "C", "D"],
-            "answer": "string"
-          }}
-        ]
-
-        Text:
-        {text[:3000]}
-        """
-
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are an expert quiz generator."},
-                {"role": "user", "content": prompt},
-            ],
-            max_tokens=700,
-            temperature=0.7,
-        )
-
-        raw_output = response.choices[0].message.content.strip()
         try:
-            return json.loads(raw_output)
-        except json.JSONDecodeError:
-            match = re.search(r"\[.*\]", raw_output, re.DOTALL)
-            if match:
-                return json.loads(match.group(0))
-            print("❌ Raw AI output:", raw_output)
-            raise HTTPException(status_code=500, detail="AI response not valid JSON")
+            # Using Hugging Face's quiz generator model :cite[1]:cite[9]
+            response = await client.text_generation(
+                prompt=f"Generate quiz questions from: {text[:3000]}",
+                model="koshkosh/quiz-generator",  # Specific quiz generation model
+                max_new_tokens=700,
+                temperature=0.7,
+            )
 
-# Wrapper for background tasks
+            raw_output = response.strip()
+            try:
+                return json.loads(raw_output)
+            except json.JSONDecodeError:
+                match = re.search(r"\[.*\]", raw_output, re.DOTALL)
+                if match:
+                    return json.loads(match.group(0))
+                print("❌ Raw AI output:", raw_output)
+                raise HTTPException(status_code=500, detail="AI response not valid JSON")
+        
+        except Exception as e:
+            print(f"Error generating quiz questions: {e}")
+            raise HTTPException(status_code=500, detail=f"Quiz generation failed: {str(e)}")
+
+# Wrapper for background tasks (unchanged)
 def process_document_background(document_id: int):
     try:
         asyncio.run(DocumentService.process_document(document_id))

@@ -1,8 +1,8 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 
 class Settings(BaseSettings):
-    # Database (will always read from .env if provided)
+    # Database
     DATABASE_URL: str
     
     # Security
@@ -14,16 +14,19 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: Optional[str] = None
     
+    # Hugging Face
+    HUGGINGFACEHUB_API_TOKEN: Optional[str] = None   # 👈 added
+    
     # File Storage
     UPLOAD_DIRECTORY: str = "uploads"
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
-    ALLOWED_FILE_TYPES: list = ["pdf"]
+    ALLOWED_FILE_TYPES: List[str] = ["pdf"]
     
     # Redis (optional)
     REDIS_URL: Optional[str] = None
     
     # CORS
-    BACKEND_CORS_ORIGINS: list = [
+    BACKEND_CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:8080"

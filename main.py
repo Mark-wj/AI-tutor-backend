@@ -34,7 +34,7 @@ async def lifespan(app: FastAPI):
     # Show configuration
     print(f"📁 Upload Directory: {settings.UPLOAD_DIRECTORY}")
     print(f"🗄️  Database URL: {settings.DATABASE_URL}")
-    print(f"🤖 OpenAI API Key: {'✓ Set' if os.getenv('OPENAI_API_KEY') else '✗ Not Set'}")
+    print(f"🤖 Hugging Face API Token: {'✓ Set' if os.getenv('HUGGINGFACEHUB_API_TOKEN') else '✗ Not Set'}")
     
     print("\n📋 Registered API Routes:")
     routes_by_tag = {}

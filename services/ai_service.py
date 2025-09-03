@@ -2,54 +2,36 @@ from typing import List, Dict, Any
 from config import settings
 from models.quiz import QuestionType, DifficultyLevel
 import json
-from openai import AsyncOpenAI
+from huggingface_hub import AsyncInferenceClient  # Changed import
 
-# Initialize OpenAI client
-client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+# Initialize Hugging Face client
+client = AsyncInferenceClient(token=settings.HUGGINGFACEHUB_API_TOKEN)  # Changed client
 
 class AIService:
     
     @staticmethod
     async def generate_summary(text: str) -> Dict[str, Any]:
         try:
-            # First: generate summary
-            response = await client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are an expert educational content summarizer. Create concise, informative summaries that highlight key concepts and learning objectives."
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Please provide a comprehensive summary of the following educational content, including key topics and main concepts:\n\n{text[:4000]}"
-                    }
-                ],
-                max_tokens=500,
+            # Generate summary using Hugging Face
+            response = await client.text_generation(
+                prompt=f"Please provide a comprehensive summary of the following educational content, including key topics and main concepts:\n\n{text[:4000]}",
+                model="mistralai/Mistral-7B-Instruct-v0.2",
+                max_new_tokens=500,
                 temperature=0.3
             )
             
-            summary = response.choices[0].message.content.strip()
+            summary = response.strip()
             
-            # Second: extract key topics
-            topics_response = await client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "Extract 5-7 key topics from the given text. Return as a JSON array of strings."
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Extract key topics from: {text[:2000]}"
-                    }
-                ],
-                max_tokens=200,
+            # Extract key topics
+            topics_response = await client.text_generation(
+                prompt=f"Extract 5-7 key topics from the given text. Return as a JSON array of strings:\n\n{text[:2000]}",
+                model="mistralai/Mistral-7B-Instruct-v0.2",
+                max_new_tokens=200,
                 temperature=0.2
             )
             
             try:
-                key_topics = json.loads(topics_response.choices[0].message.content.strip())
+                key_topics = json.loads(topics_response.strip())
             except:
                 key_topics = ["Topic analysis unavailable"]
             
@@ -79,12 +61,7 @@ class AIService:
             
             style_instruction = learning_style_prompt.get(learning_style.lower(), learning_style_prompt["reading"])
             
-            response = await client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": f"""You are an expert educational content creator. Generate {num_questions} quiz questions based on the provided content.
+            prompt = f"""You are an expert educational content creator. Generate {num_questions} quiz questions based on the provided content.
                         
                         Learning style adaptation: {style_instruction}
                         
@@ -102,18 +79,19 @@ class AIService:
                         
                         Question types: multiple_choice, true_false, short_answer
                         Difficulty levels: easy, medium, hard
+                        
+                        Generate quiz questions based on this content:
+                        {text[:3000]}
                         """
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Generate quiz questions based on this content:\n\n{text[:3000]}"
-                    }
-                ],
-                max_tokens=2000,
+            
+            response = await client.text_generation(
+                prompt=prompt,
+                model="koshkosh/quiz-generator",  # Using quiz generator model :cite[1]:cite[9]
+                max_new_tokens=2000,
                 temperature=0.4
             )
             
-            questions_json = response.choices[0].message.content.strip()
+            questions_json = response.strip()
             questions = json.loads(questions_json)
             return questions
             
