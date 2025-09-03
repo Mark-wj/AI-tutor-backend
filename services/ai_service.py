@@ -2,7 +2,7 @@ from typing import List, Dict, Any
 from config import settings
 from models.quiz import QuestionType, DifficultyLevel
 import json
-from huggingface_hub import AsyncInferenceClient  # Changed import
+from huggingface_hub import AsyncInferenceClient  
 
 # Initialize Hugging Face client
 client = AsyncInferenceClient(token=settings.HUGGINGFACEHUB_API_TOKEN)  # Changed client
