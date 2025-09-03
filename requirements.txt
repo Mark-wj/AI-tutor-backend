@@ -14,5 +14,4 @@ python-dotenv==1.0.0
 alembic==1.12.1
 redis==5.0.1
 aiofiles==23.2.0
-pillow==10.2.0
-bcrypt==4.2.3
+pillow>=10.2.0
