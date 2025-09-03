@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: ai-tutor-backend
+    env: python
+    runtime: python-3.11
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: gunicorn -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:$PORT
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        sync: false   # set in Render dashboard (e.g. mysql+pymysql://user:pass@host/db)
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
